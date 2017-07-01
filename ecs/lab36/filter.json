@@ -1,0 +1,10 @@
+[
+  {
+    "Name": "tag:Name",
+    "Values": ["lab36"]
+  },
+  {
+    "Name": "instance-state-name",
+    "Values": ["running"]
+  }
+]
