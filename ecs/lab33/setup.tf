@@ -22,6 +22,8 @@ variable "key_path" {
   default = "/Users/dschmitz/.ssh/aws/dschmitz_senacor_aws.pem"
 }
 
+variable "snapshot_id" {}
+
 ####
 
 data "aws_ami" "web" {
@@ -77,7 +79,7 @@ resource "aws_ebs_volume" "extradata" {
 
 resource "aws_ebs_volume" "snapshot" {
   availability_zone = "eu-central-1b"
-  snapshot_id = "snap-0726db8165c5462c1"
+  snapshot_id = "${var.snapshot_id}"
   tags {
       Name = "${var.name}-snapshot"
   }
