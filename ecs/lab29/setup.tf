@@ -10,6 +10,10 @@ variable "cost_center" {
   default = "tecco"
 }
 
+variable "profile_name" {
+  default = "tecco"
+}
+
 variable "key_name" {
   default = "dschmitz_senacor_aws"
 }
@@ -36,7 +40,7 @@ data "aws_ami" "web" {
 
 provider "aws" {
   region = "eu-central-1"
-  profile = "tecco"
+  profile = "${var.profile_name}"
 }
 
 resource "aws_security_group" "sec-group" {
@@ -98,7 +102,7 @@ resource "aws_instance" "lab29" {
     connection {
       timeout = "10m"
       user = "ubuntu"
-      private_key = "${file("/Users/dschmitz/.ssh/aws/dschmitz_senacor_aws.pem")}"
+      private_key = "${file("${var.key_path}")}"
     }
   }
 
@@ -109,7 +113,7 @@ resource "aws_instance" "lab29" {
     connection {
       timeout = "1m"
       user = "ubuntu"
-      private_key = "${file("/Users/dschmitz/.ssh/aws/dschmitz_senacor_aws.pem")}"
+      private_key = "${file("${var.key_path}")}"
     }
   }
 
