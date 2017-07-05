@@ -84,6 +84,8 @@ resource "aws_security_group" "sec-group" {
 }
 
 resource "aws_instance" "lab38" {
+  count = "3"
+
   ami           = "${data.aws_ami.web.id}"
   instance_type = "t2.micro"
   key_name      = "${var.key_name}"
@@ -118,7 +120,7 @@ resource "aws_instance" "lab38" {
   }
 
   tags {
-    Name       = "lab38"
+    Name       = "lab38_${count.index}"
     CostCenter = "${var.cost_center}"
     Owner      = "${var.owner}"
   }
@@ -126,11 +128,7 @@ resource "aws_instance" "lab38" {
 
 resource "aws_elb" "elb" {
   name               = "dschmitz-lab38-elb"
-  availability_zones = ["eu-central-1a", "eu-central-1b"]
-
-  # source_security_group_id = "${aws_security_group.sec-group.id}"
-  # security_groups =
-  # subnets =
+  availability_zones = ["${aws_instance.lab38.*.availability_zone}"]
 
   listener {
     instance_port     = 80
@@ -147,11 +145,7 @@ resource "aws_elb" "elb" {
     timeout             = 2
   }
 
-  instances          = ["${aws_instance.lab38.id}"]
-  # cross_zone_load_balancing   = true
-  # idle_timeout                = 400
-  # connection_draining         = true
-  # connection_draining_timeout = 400
+  instances          = ["${aws_instance.lab38.*.id}"]
 
   tags {
     Name       = "dschmitz-lab38-elb"
@@ -160,12 +154,8 @@ resource "aws_elb" "elb" {
   }
 }
 
-resource "aws_eip" "ip" {
-  instance = "${aws_instance.lab38.id}"
-}
-
 output "ip" {
-  value  = "${aws_eip.ip.public_ip}"
+  value  = ["${aws_instance.lab38.*.public_ip }"]
 }
 
 output "elbdns" {
