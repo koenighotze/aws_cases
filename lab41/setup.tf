@@ -22,8 +22,6 @@ variable "key_path" {
   default = "/Users/dschmitz/.ssh/aws/dschmitz_senacor_aws.pem"
 }
 
-####
-
 data "aws_ami" "web" {
   filter {
     name   = "state"
@@ -43,24 +41,58 @@ provider "aws" {
   profile = "${var.profile_name}"
 }
 
-resource "aws_iam_role" "s3-bucket-access" {
-  name = "lab41-aws-s3-bucket-access"
+# create role for ec2
+resource "aws_iam_role" "lab41-aws-s3-bucket-access-role" {
+  name = "lab41-aws-s3-bucket-access-role"
 
   assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
     {
-      "Version": "2012-10-17",
-      "Statement": [
-        {
-          "Effect": "Allow",
-          "Action": ["s3:ListAllMyBuckets", "s3:GetObject", "s3:ListBucket"]
-        }
-      ]
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Effect": "Allow"
     }
+  ]
+}
 EOF
 }
 
+# create policy for accessing s3
+resource "aws_iam_role_policy" "ec2_bucket_access_iam_role_policy" {
+  name = "ec2_bucket_access_iam_role_policy"
+  role = "${aws_iam_role.lab41-aws-s3-bucket-access-role.id}"
+
+  # generated with https://awspolicygen.s3.amazonaws.com/policygen.html
+  policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:Get*",
+                "s3:List*"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+}
+
+# create instance profile for the role
+resource "aws_iam_instance_profile" "s3-access-profile" {
+  name = "lab41-access-profile"
+  role = "${aws_iam_role.lab41-aws-s3-bucket-access-role.name}"
+}
+
 resource "aws_s3_bucket" "bucket" {
-  bucket = "lab41-dschmitz-bucket"
+  bucket = "lab41-bucket"
+  acl = "private"
 
   tags {
     Owner = "${var.owner}"
@@ -68,12 +100,6 @@ resource "aws_s3_bucket" "bucket" {
     Name = "lab41"
   }
 }
-
-#
-#  attach role to instance
-#  Install aws cli on instance? Not needed??!?!
-#  No credential setup needed
-#  aws s3 list
 
 resource "aws_security_group" "sec-group" {
   name = "lab41-security-group"
@@ -99,11 +125,6 @@ resource "aws_security_group" "sec-group" {
   }
 }
 
-resource "aws_iam_instance_profile" "s3-access-profile" {
-  name = "lab41-access-profile"
-  role = "${aws_iam_role.s3-bucket-access.name}"
-}
-
 resource "aws_instance" "lab41" {
   ami           = "${data.aws_ami.web.id}"
   instance_type = "t2.micro"
@@ -116,7 +137,8 @@ resource "aws_instance" "lab41" {
   provisioner "remote-exec" {
     inline = [
       "sudo sed -i -e 's/us-west-2.ec2.archive/eu-central-1.ec2.archive/g' /etc/apt/sources.list",
-      "sudo apt-get update"
+      "sudo apt-get update",
+      "sudo apt install -y awscli"
     ]
 
     connection {
@@ -138,10 +160,9 @@ output "ip" {
 }
 
 output "role-arn" {
-  value  = "${aws_iam_role.s3-bucket-access.arn}"
+  value  = "${aws_iam_role.lab41-aws-s3-bucket-access-role.arn}"
 }
 
 output "bucket_domain_name" {
   value = "${aws_s3_bucket.bucket.bucket_domain_name}"
-
 }
