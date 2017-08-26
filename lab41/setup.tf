@@ -22,8 +22,6 @@ variable "key_path" {
   default = "/Users/dschmitz/.ssh/aws/dschmitz_senacor_aws.pem"
 }
 
-####
-
 data "aws_ami" "web" {
   filter {
     name   = "state"
@@ -43,7 +41,8 @@ provider "aws" {
   profile = "${var.profile_name}"
 }
 
-resource "aws_iam_role" "s3-bucket-access-role" {
+# create role for ec2
+resource "aws_iam_role" "lab41-aws-s3-bucket-access-role" {
   name = "lab41-aws-s3-bucket-access-role"
 
   # who may use this role. In this case EC2 instances
@@ -82,8 +81,15 @@ resource "aws_iam_role_policy" "s3-bucket-access-policy" {
 EOF
 }
 
+# create instance profile for the role
+resource "aws_iam_instance_profile" "s3-access-profile" {
+  name = "lab41-access-profile"
+  role = "${aws_iam_role.lab41-aws-s3-bucket-access-role.name}"
+}
+
 resource "aws_s3_bucket" "bucket" {
-  bucket = "lab41-dschmitz-bucket"
+  bucket = "lab41-bucket"
+  acl = "private"
 
   tags {
     Owner = "${var.owner}"
@@ -161,5 +167,4 @@ output "role-arn" {
 
 output "bucket_domain_name" {
   value = "${aws_s3_bucket.bucket.bucket_domain_name}"
-
 }
