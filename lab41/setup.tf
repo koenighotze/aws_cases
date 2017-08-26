@@ -43,19 +43,42 @@ provider "aws" {
   profile = "${var.profile_name}"
 }
 
-resource "aws_iam_role" "s3-bucket-access" {
-  name = "lab41-aws-s3-bucket-access"
+resource "aws_iam_role" "s3-bucket-access-role" {
+  name = "lab41-aws-s3-bucket-access-role"
 
+  # who may use this role. In this case EC2 instances
   assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
     {
-      "Version": "2012-10-17",
-      "Statement": [
-        {
-          "Effect": "Allow",
-          "Action": ["s3:ListAllMyBuckets", "s3:GetObject", "s3:ListBucket"]
-        }
-      ]
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
     }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy" "s3-bucket-access-policy" {
+  name = "lab41-aws-s3-bucket-access-policy"
+  role = "${aws_iam_role.s3-bucket-access-role.id}"
+
+  policy = <<EOF
+{
+"Version": "2012-10-17",
+"Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": "*"
+    }
+]
+}
 EOF
 }
 
@@ -68,12 +91,6 @@ resource "aws_s3_bucket" "bucket" {
     Name = "lab41"
   }
 }
-
-#
-#  attach role to instance
-#  Install aws cli on instance? Not needed??!?!
-#  No credential setup needed
-#  aws s3 list
 
 resource "aws_security_group" "sec-group" {
   name = "lab41-security-group"
@@ -101,7 +118,7 @@ resource "aws_security_group" "sec-group" {
 
 resource "aws_iam_instance_profile" "s3-access-profile" {
   name = "lab41-access-profile"
-  role = "${aws_iam_role.s3-bucket-access.name}"
+  role = "${aws_iam_role.s3-bucket-access-role.name}"
 }
 
 resource "aws_instance" "lab41" {
@@ -116,7 +133,8 @@ resource "aws_instance" "lab41" {
   provisioner "remote-exec" {
     inline = [
       "sudo sed -i -e 's/us-west-2.ec2.archive/eu-central-1.ec2.archive/g' /etc/apt/sources.list",
-      "sudo apt-get update"
+      "sudo apt-get update",
+      "sudo apt install -y awscli"
     ]
 
     connection {
@@ -138,7 +156,7 @@ output "ip" {
 }
 
 output "role-arn" {
-  value  = "${aws_iam_role.s3-bucket-access.arn}"
+  value  = "${aws_iam_role.s3-bucket-access-role.arn}"
 }
 
 output "bucket_domain_name" {
