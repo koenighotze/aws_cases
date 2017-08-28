@@ -22,25 +22,72 @@ variable "key_path" {
   default = "/Users/dschmitz/.ssh/aws/dschmitz_senacor_aws.pem"
 }
 
-####
-
-# data "aws_ami" "web" {
-#   filter {
-#     name   = "state"
-#     values = ["available"]
-#   }
-
-#   filter {
-#     name = "name"
-#     values = ["t2.micro"]
-#   }
-
-#   most_recent = true
-# }
-
 provider "aws" {
   region = "eu-central-1"
   profile = "${var.profile_name}"
+}
+
+# prepare bucket with webpage
+resource "aws_s3_bucket" "bucket" {
+  bucket = "lab43-bucket"
+  acl = "private"
+
+  tags {
+    Owner = "${var.owner}"
+    Costcenter = "${var.cost_center}"
+    Name = "lab43"
+  }
+}
+
+resource "aws_s3_bucket_object" "index-file" {
+  bucket = "${aws_s3_bucket.bucket.bucket}"
+  key    = "index.html"
+  source = "index.html"
+}
+
+# create role and policy for s3 access
+resource "aws_iam_role" "lab43-aws-s3-bucket-access-role" {
+  name = "lab43-aws-s3-bucket-access-role"
+
+  # who may use this role. In this case EC2 instances
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy" "s3-bucket-access-policy" {
+  name = "lab43-aws-s3-bucket-access-policy"
+  role = "${aws_iam_role.lab43-aws-s3-bucket-access-role.id}"
+
+  policy = <<EOF
+{
+"Version": "2012-10-17",
+"Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": "*"
+    }
+]
+}
+EOF
+}
+
+resource "aws_iam_instance_profile" "s3-access-profile" {
+  name = "lab43-access-profile"
+  role = "${aws_iam_role.lab43-aws-s3-bucket-access-role.name}"
 }
 
 resource "aws_security_group" "sec-group" {
@@ -58,14 +105,6 @@ resource "aws_security_group" "sec-group" {
   ingress {
     from_port = 80
     to_port = 80
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # allow incomming https
-  ingress {
-    from_port = 443
-    to_port = 443
     protocol = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -89,6 +128,7 @@ resource "aws_instance" "lab43" {
   key_name = "${var.key_name}"
 
   vpc_security_group_ids = ["${aws_security_group.sec-group.id}"]
+  iam_instance_profile = "${aws_iam_instance_profile.s3-access-profile.id}"
 
   user_data = "${file("setup.sh")}"
 
