@@ -65,7 +65,7 @@ EOF
 
 resource "aws_iam_role_policy" "s3-bucket-access-policy" {
   name = "lab41-aws-s3-bucket-access-policy"
-  role = "${aws_iam_role.s3-bucket-access-role.id}"
+  role = "${aws_iam_role.lab41-aws-s3-bucket-access-role.id}"
 
   policy = <<EOF
 {
@@ -122,11 +122,6 @@ resource "aws_security_group" "sec-group" {
   }
 }
 
-resource "aws_iam_instance_profile" "s3-access-profile" {
-  name = "lab41-access-profile"
-  role = "${aws_iam_role.s3-bucket-access-role.name}"
-}
-
 resource "aws_instance" "lab41" {
   ami           = "${data.aws_ami.web.id}"
   instance_type = "t2.micro"
@@ -136,19 +131,7 @@ resource "aws_instance" "lab41" {
 
   iam_instance_profile = "${aws_iam_instance_profile.s3-access-profile.id}"
 
-  provisioner "remote-exec" {
-    inline = [
-      "sudo sed -i -e 's/us-west-2.ec2.archive/eu-central-1.ec2.archive/g' /etc/apt/sources.list",
-      "sudo apt-get update",
-      "sudo apt install -y awscli"
-    ]
-
-    connection {
-      timeout = "10m"
-      user = "ubuntu"
-      private_key = "${file("${var.key_path}")}"
-    }
-  }
+  user_data = "${file("setup.sh")}"
 
   tags {
     Name = "lab41"
@@ -162,7 +145,7 @@ output "ip" {
 }
 
 output "role-arn" {
-  value  = "${aws_iam_role.s3-bucket-access-role.arn}"
+  value  = "${aws_iam_role.lab41-aws-s3-bucket-access-role.arn}"
 }
 
 output "bucket_domain_name" {
